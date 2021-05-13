@@ -13,15 +13,21 @@
 	msgOpInvalida: "\nEsta opcao nao existe, tente novamente!\n"
 	msgPosJaEscolhida: "Esta posição já está aberta! Tente outra!\n"
 	
-	campo:
-		   .word   0, 9, 0, 9, 0, 0, 0, 0,                         
-			   9, 0, 0, 0, 0, 9, 9, 0,
-			   0, 0, 0, 0, 0, 0, 9, 0,
-			   0, 9, 0, 9, 0, 0, 9, 0,
-			   0, 0, 0, 0, 9, 0, 9, 0,
-			   9, 9, 0, 9, 0, 0, 9, 0,
-			   9, 9, 0, 0, 0, 9, 9, 0,
-			   0, 0, 9, 9, 0, 0, 0, 0
+	campo:			.space		324   # esta versão suporta campo de até 9 x 9 posições de memória
+	salva_S0:		.word		0
+	salva_ra:		.word		0
+	salva_ra1:		.word		0
+
+	
+	#campo:
+	#	   .word   0, 0, 0, 0, 0, 0, 0, 0,                         
+	#		   0, 0, 0, 0, 0, 0, 0, 0,
+	#		   0, 0, 0, 0, 0, 0, 0, 0,
+	#		   0, 0, 0, 0, 0, 0, 0, 0,
+	#		   0, 0, 0, 0, 0, 0, 0, 0,
+	#		   0, 0, 0, 0, 0, 0, 0, 0,
+	#		   0, 0, 0, 0, 0, 0, 0, 0,
+	#		   0, 0, 0, 0, 0, 0, 0, 0
 			
 	results:
 		
@@ -41,6 +47,11 @@
 
 	
 main:
+		la 	a0, campo
+		addi	a1, zero, 8
+		jal 	INSERE_BOMBA
+		nop
+
 		li t1, 1
 		
 		#menu:
@@ -139,7 +150,7 @@ colunaI:
 		
 		j coluna
 		
-pos_valida:				               #testa se a posicao ja foi aberta
+pos_valida:				                 #testa se a posicao ja foi aberta
 
 		addi t5, zero, 8                         #total de colunas
 		addi t6, zero, 64                        #tamanho da matriz
@@ -214,8 +225,8 @@ for_e:
 	beq t0, t2, ok
 	beq t1, t3, quebra
 	
-	lw s2 (s11)
-	beq s2, t4, asterisco
+	lw s2 (s11)               #le as posições da matriz
+	beq s2, t4, asterisco     #se for -1 imprime o asterisco
 	
 	add a0, zero, s2
 	li a7, 1
@@ -274,18 +285,18 @@ novamente:
 	li a7, 4
 	ecall
 	
-	addi s8, zero, -1
+#	addi s8, zero, -1
 	
-	beq s8, zero, vitoria
+#	beq s8, zero, vitoria
 	j retorno
 									
-vitoria:
-		la a0, msgVenceu                 #achou uma bomba, fim de game
-		li a7, 4
-		ecall	
+#vitoria:
+#		la a0, msgVenceu                 #achou uma bomba, fim de game
+#		li a7, 4
+#		ecall	
 	
-		nop
-		ebreak															
+#		nop
+#		ebreak															
 
 calcula_bombas:
 		addi t1, zero, 8       	#primeira linha
@@ -659,4 +670,100 @@ break:
 #	li a7, 4
 #	ecall
 	
-	
+INSERE_BOMBA:
+		la	t0, salva_S0
+		sw  	s0, 0 (t0)		# salva conteudo de s0 na memoria
+		la	t0, salva_ra
+		sw  	ra, 0 (t0)		# salva conteudo de ra na memoria
+		
+		add 	t0, zero, a0		# salva a0 em t0 - endereço da matriz campo
+		add 	t1, zero, a1		# salva a1 em t1 - quantidade de linhas 
+
+QTD_BOMBAS:
+		addi 	t2, zero, 15 		# seta para 15 bombas	
+		add 	t3, zero, zero 	# inicia contador de bombas com 0
+		addi 	a7, zero, 30 		# ecall 30 pega o tempo do sistema em milisegundos (usado como semente
+		ecall 				
+		add 	a1, zero, a0		# coloca a semente em a1
+INICIO_LACO:
+		beq 	t2, t3, FIM_LACO
+		add 	a0, zero, t1 		# carrega limite para %	(resto da divisão)
+		jal 	PSEUDO_RAND
+		add 	t4, zero, a0		# pega linha sorteada e coloca em t4
+		add 	a0, zero, t1 		# carrega limite para % (resto da divisão)
+   		jal 	PSEUDO_RAND
+		add 	t5, zero, a0		# pega coluna sorteada e coloca em t5
+
+###############################################################################
+# imprime valores na tela (para debug somente) - retirar comentarios para ver
+#	
+#		li	a7, 4		# mostra texto "Posicao: "
+#		la	a0, posicao
+#		ecall
+#		li	a7, 1
+#		add 	a0, zero, t4 	# imprime a linha sorteada	
+#		ecall
+#
+#		add 	a0, zero, t5 	# imprime coluna sorteada
+#		ecall
+#		
+#		li	a7, 4		# imrpime espaço
+#		la	a0, espaco
+#		ecall
+#		li	a7, 1		
+#		add 	a0, zero, t3 	# imprime quantidade ja sorteada
+#		ecall
+#		
+##########################################################################	
+
+LE_POSICAO:	
+		mul  	t4, t4, t1
+		add  	t4, t4, t5  		# calcula (L * tam) + C
+		add  	t4, t4, t4  		# multiplica por 2
+		add  	t4, t4, t4  		# multiplica por 4
+		add  	t4, t4, t0  		# calcula Base + deslocamento
+		lw   	t5, 0(t4)   		# Le posicao de memoria LxC
+VERIFICA_BOMBA:		
+		addi 	t6, zero, 9		# se posição sorteada já possui bomba
+		beq  	t5, t6, PULA_ATRIB	# pula atribuição 
+		sw   	t6, 0(t4)		# senão coloca 9 (bomba) na posição
+		addi 	t3, t3, 1		# incrementa quantidade de bombas sorteadas
+PULA_ATRIB:
+		j	INICIO_LACO
+
+FIM_LACO:					# recupera registradores salvos
+		la	t0, salva_S0
+		lw  	s0, 0(t0)		# recupera conteudo de s0 da memória
+		la	t0, salva_ra
+		lw  	ra, 0(t0)		# recupera conteudo de ra da memória		
+		jr 	ra			# retorna para funcao que fez a chamada
+		
+##################################################################
+# PSEUDO_RAND
+# função que gera um número pseudo-randomico que será
+# usado para obter a posição da linha e coluna na matriz
+# entrada: a0 valor máximo do resultado menos 1 
+#             (exemplo: a0 = 8 resultado entre 0 e 7)
+#          a1 para o número pseudo randomico 
+# saida: a0 valor pseudo randomico gerado
+#################################################################
+#int rand1(int lim, int semente) {
+#  static long a = semente; 
+#  a = (a * 125) % 2796203; 
+#  return (|a % lim|); 
+# }  
+
+PSEUDO_RAND:
+		addi t6, zero, 125  		# carrega constante t6 = 125
+		lui  t5, 682			# carrega constante t5 = 2796203
+		addi t5, t5, 1697 		# 
+		addi t5, t5, 1034 		# 	
+		mul  a1, a1, t6			# a = a * 125
+		rem  a1, a1, t5			# a = a % 2796203
+		rem  a0, a1, a0			# a % lim
+		bge  a0, zero, EH_POSITIVO  	# testa se valor eh positivo
+		addi s2, zero, -1           	# caso não 
+		mul  a0, a0, s2		    	# transforma em positivo
+EH_POSITIVO:	
+		ret				# retorna em a0 o valor obtido
+############################################################################
